@@ -5,11 +5,19 @@ let quotes = [];
 const LOCAL_STORAGE_KEY = 'quotesData';
 const SESSION_STORAGE_KEY = 'lastViewedQuote';
 
+// Server API simulation endpoints (JSONPlaceholder does not actually store data, but good for demo)
+const SERVER_URL = "https://jsonplaceholder.typicode.com/posts"; // We'll treat "posts" as quotes
+
 // --- DOM References ---
 const quoteDisplay = document.getElementById('quoteDisplay');
 const newQuoteBtn = document.getElementById('newQuote');
-const addQuoteContainer = document.getElementById('addQuoteContainer');
-const importExportContainer = document.getElementById('importExportContainer'); // Container for import/export buttons
+const addQuoteContainer = document.getElementById('addQuoteContainer') || document.createElement('div');
+const importExportContainer = document.getElementById('importExportContainer');
+const notificationArea = document.createElement('div');
+notificationArea.style.margin = '10px 0';
+notificationArea.style.fontWeight = 'bold';
+notificationArea.style.color = 'green';
+document.body.insertBefore(notificationArea, quoteDisplay);
 
 // --- Load Quotes from Local Storage on Init ---
 function loadQuotes() {
@@ -24,11 +32,12 @@ function loadQuotes() {
   } else {
     // Default quotes if none in storage
     quotes = [
-      { text: "The only way to do great work is to love what you do.", category: "Motivation" },
-      { text: "Life is what happens when you’re busy making other plans.", category: "Life" },
-      { text: "Get busy living or get busy dying.", category: "Life" },
-      { text: "Success usually comes to those who are too busy to be looking for it.", category: "Success" }
+      { id: 1, text: "The only way to do great work is to love what you do.", category: "Motivation" },
+      { id: 2, text: "Life is what happens when you’re busy making other plans.", category: "Life" },
+      { id: 3, text: "Get busy living or get busy dying.", category: "Life" },
+      { id: 4, text: "Success usually comes to those who are too busy to be looking for it.", category: "Success" }
     ];
+    saveQuotes();
   }
 }
 
@@ -69,19 +78,19 @@ function showRandomQuote() {
   sessionStorage.setItem(SESSION_STORAGE_KEY, randomIndex.toString());
 }
 
-// Reference for category dropdown (create this dropdown in HTML, see below)
+// --- Reference for category dropdown ---
 const categorySelect = document.createElement('select');
 categorySelect.id = 'categoryFilter';
 categorySelect.style.marginLeft = '10px';
 
-// Populate category dropdown dynamically from quotes array
+// --- Populate Categories ---
 function populateCategories() {
   // Extract unique categories
   const categories = [...new Set(quotes.map(q => q.category))];
-  
+
   // Clear existing options but keep the default "All"
   categorySelect.innerHTML = '';
-  
+
   const allOption = document.createElement('option');
   allOption.value = '';
   allOption.textContent = 'All Categories';
@@ -99,14 +108,13 @@ function populateCategories() {
   categorySelect.value = savedCategory;
 }
 
-// Filter quotes based on selected category and display one random quote from filtered list
+// --- Filter Quotes ---
 function filterQuotes() {
   const selectedCategory = categorySelect.value;
   localStorage.setItem('selectedCategory', selectedCategory);
 
-  // Filter quotes array or use full list if no category selected
-  const filteredQuotes = selectedCategory 
-    ? quotes.filter(q => q.category === selectedCategory) 
+  const filteredQuotes = selectedCategory
+    ? quotes.filter(q => q.category === selectedCategory)
     : quotes;
 
   quoteDisplay.innerHTML = '';
@@ -119,7 +127,6 @@ function filterQuotes() {
     return;
   }
 
-  // Pick a random quote from filtered
   const randomIndex = Math.floor(Math.random() * filteredQuotes.length);
   const quote = filteredQuotes[randomIndex];
 
@@ -136,10 +143,8 @@ function filterQuotes() {
   quoteDisplay.appendChild(p);
   quoteDisplay.appendChild(small);
 
-  // Optionally store last viewed filtered quote index (can be improved if you want)
   sessionStorage.setItem(SESSION_STORAGE_KEY, randomIndex.toString());
 }
-
 
 // --- Create Add Quote Form ---
 function createAddQuoteForm() {
@@ -179,28 +184,35 @@ function addQuote() {
     return;
   }
 
-  quotes.push({ text: newQuoteText, category: newQuoteCategory });
+  // Create a new quote with a unique id (max id + 1)
+  const maxId = quotes.reduce((max, q) => (q.id > max ? q.id : max), 0);
+  const newQuoteObj = { id: maxId + 1, text: newQuoteText, category: newQuoteCategory };
+
+  // Add locally
+  quotes.push(newQuoteObj);
   saveQuotes();
+
+  // Also POST it to "server"
+  postQuoteToServer(newQuoteObj);
 
   // Clear inputs
   newQuoteTextInput.value = '';
   newQuoteCategoryInput.value = '';
 
-  populateCategories(); // Refresh categories dropdown to include new category
-  filterQuotes();       // Show filtered quotes according to current filter
-}
+  populateCategories();
+  filterQuotes();
 
+  notifyUser("Quote added locally and sent to server.");
+}
 
 // --- Create Import and Export Controls ---
 function createImportExportControls() {
   importExportContainer.innerHTML = '';
 
-  // Export Button
   const exportBtn = document.createElement('button');
   exportBtn.textContent = 'Export Quotes (JSON)';
   exportBtn.addEventListener('click', exportToJsonFile);
 
-  // Import Input
   const importInput = document.createElement('input');
   importInput.type = 'file';
   importInput.accept = '.json';
@@ -240,7 +252,6 @@ function importFromJsonFile(event) {
 
       if (!Array.isArray(importedQuotes)) throw new Error('Invalid format: JSON must be an array of quotes.');
 
-      // Validate each imported quote object
       importedQuotes.forEach(q => {
         if (typeof q.text !== 'string' || typeof q.category !== 'string') {
           throw new Error('Invalid quote object detected.');
@@ -257,8 +268,97 @@ function importFromJsonFile(event) {
   };
   fileReader.readAsText(file);
 
-  // Clear the input value to allow re-importing the same file if needed
   event.target.value = '';
+}
+
+// --- Notify user about sync or conflicts ---
+function notifyUser(message, isError = false) {
+  notificationArea.textContent = message;
+  notificationArea.style.color = isError ? 'red' : 'green';
+
+  setTimeout(() => {
+    notificationArea.textContent = '';
+  }, 5000);
+}
+
+// --- POST new quote to server simulation ---
+async function postQuoteToServer(quote) {
+  try {
+    const response = await fetch(SERVER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: quote.text,
+        body: quote.category,
+        userId: 1
+      })
+    });
+    if (!response.ok) throw new Error('Failed to post quote to server');
+    // Just simulating; server returns an id which can be ignored here
+  } catch (error) {
+    notifyUser('Failed to sync new quote to server', true);
+  }
+}
+
+// --- Fetch quotes from "server" ---
+async function fetchQuotesFromServer() {
+  try {
+    const response = await fetch(SERVER_URL + "?_limit=50"); // Limit results for demo
+    if (!response.ok) throw new Error('Failed to fetch quotes from server');
+
+    const serverData = await response.json();
+
+    // Transform server data to our quote format (id, text, category):
+    const serverQuotes = serverData.map(item => ({
+      id: item.id,
+      text: item.title,
+      category: item.body
+    }));
+
+    return serverQuotes;
+  } catch (error) {
+    notifyUser('Could not fetch quotes from server', true);
+    return null;
+  }
+}
+
+// --- Sync data periodically ---
+async function syncQuotesWithServer() {
+  const serverQuotes = await fetchQuotesFromServer();
+  if (!serverQuotes) return;
+
+  // Conflict resolution: server data overwrites local on id conflicts, else append new
+  let updated = false;
+
+  // Create a map for local quotes by id
+  const localMap = new Map(quotes.map(q => [q.id, q]));
+
+  // Process server quotes
+  serverQuotes.forEach(sq => {
+    if (!localMap.has(sq.id)) {
+      // New quote from server, add it
+      quotes.push(sq);
+      updated = true;
+    } else {
+      // If different text/category, update local (server precedence)
+      const localQuote = localMap.get(sq.id);
+      if (localQuote.text !== sq.text || localQuote.category !== sq.category) {
+        localQuote.text = sq.text;
+        localQuote.category = sq.category;
+        updated = true;
+      }
+    }
+  });
+
+  // Optionally, remove local quotes not present on server (if want strict sync)
+  // Could be config-controlled, omitted here for simplicity.
+
+  if (updated) {
+    saveQuotes();
+    populateCategories();
+    filterQuotes();
+    notifyUser('Quotes updated from server');
+  }
 }
 
 // --- Initialization ---
@@ -267,76 +367,24 @@ function init() {
   createAddQuoteForm();
   createImportExportControls();
 
-  // Insert category filter dropdown before the "Show New Quote" button
   newQuoteBtn.parentNode.insertBefore(categorySelect, newQuoteBtn);
 
   populateCategories();
 
   // Show quotes filtered by last selected category (or all)
   filterQuotes();
+
+  // Start periodic sync every 30 seconds
+  setInterval(syncQuotesWithServer, 30000);
+
+  // Initial sync on startup
+  syncQuotesWithServer();
 }
 
-//Add event listener to the category filter dropdown:
+// Add event listener to the category filter dropdown:
 categorySelect.addEventListener('change', filterQuotes);
 // Event listener for showing a random quote
 newQuoteBtn.addEventListener('click', showRandomQuote);
 
 // Initialize application on page load
 init();
-
-const SERVER_URL = 'https://jsonplaceholder.typicode.com/posts'; // Example mock API endpoint
-const SYNC_INTERVAL = 30000; // 30 seconds sync interval
-const notificationArea = document.createElement('div');
-notificationArea.id = 'syncNotification';
-notificationArea.style.position = 'fixed';
-notificationArea.style.top = '10px';
-notificationArea.style.right = '10px';
-notificationArea.style.backgroundColor = '#4caf50';
-notificationArea.style.color = 'white';
-notificationArea.style.padding = '10px';
-notificationArea.style.display = 'none';
-document.body.appendChild(notificationArea);
-
-async function fetchServerQuotes() {
-  try {
-    const response = await fetch(SERVER_URL);
-    const serverData = await response.json();
-    // Assuming serverData is an array of quotes {text, category}
-    return serverData.map(item => ({
-      text: item.body || item.text,
-      category: item.title || 'Uncategorized'
-    }));
-  } catch (error) {
-    console.error('Error fetching server quotes:', error);
-    return [];
-  }
-}
-
-async function syncQuotes() {
-  const serverQuotes = await fetchServerQuotes();
-  if (serverQuotes.length === 0) return;
-
-  // Simple conflict resolution: overwrite local quotes with server quotes
-  quotes = serverQuotes;
-  saveQuotes();
-  populateCategories();
-  filterQuotes();
-
-  // Show notification to user
-  notificationArea.textContent = 'Quotes updated from server.';
-  notificationArea.style.display = 'block';
-  setTimeout(() => {
-    notificationArea.style.display = 'none';
-  }, 4000);
-}
-
-// Periodic sync setup
-setInterval(syncQuotes, SYNC_INTERVAL);
-
-// Optional manual sync button
-const manualSyncBtn = document.createElement('button');
-manualSyncBtn.textContent = 'Sync Quotes Now';
-manualSyncBtn.style.margin = '10px';
-manualSyncBtn.addEventListener('click', syncQuotes);
-document.body.insertBefore(manualSyncBtn, quoteDisplay);
-
