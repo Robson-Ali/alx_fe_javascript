@@ -9,36 +9,40 @@ let quotes = [
 // Reference to DOM elements
 const quoteDisplay = document.getElementById('quoteDisplay');
 const newQuoteBtn = document.getElementById('newQuote');
-const addQuoteBtn = document.getElementById('addQuoteBtn');
-const newQuoteTextInput = document.getElementById('newQuoteText');
-const newQuoteCategoryInput = document.getElementById('newQuoteCategory');
+const addQuoteContainer = document.getElementById('addQuoteContainer'); // Assume a container for the add quote form
 
-// Function to show a random quote from the array
+// Function to show a random quote from the array using innerHTML
 function showRandomQuote() {
   if (quotes.length === 0) {
-    quoteDisplay.textContent = "No quotes available. Add some!";
+    quoteDisplay.innerHTML = "<p>No quotes available. Add some!</p>";
     return;
   }
   const randomIndex = Math.floor(Math.random() * quotes.length);
   const quote = quotes[randomIndex];
-  // Clear previous content and create structured quote display
-  quoteDisplay.textContent = ''; 
-  const quoteText = document.createElement('p');
-  quoteText.textContent = `"${quote.text}"`;
-  quoteText.style.fontStyle = 'italic';
 
-  const quoteCategory = document.createElement('small');
-  quoteCategory.textContent = `Category: ${quote.category}`;
-  quoteCategory.style.display = 'block';
-  quoteCategory.style.marginTop = '5px';
-  quoteCategory.style.color = '#555';
+  quoteDisplay.innerHTML = `
+    <p style="font-style: italic;">"${quote.text}"</p>
+    <small style="display: block; margin-top: 5px; color: #555;">Category: ${quote.category}</small>
+  `;
+}
 
-  quoteDisplay.appendChild(quoteText);
-  quoteDisplay.appendChild(quoteCategory);
+// Function to create and display the add quote form using innerHTML
+function createAddQuoteForm() {
+  addQuoteContainer.innerHTML = `
+    <input type="text" id="newQuoteText" placeholder="Enter new quote" />
+    <input type="text" id="newQuoteCategory" placeholder="Enter category" />
+    <button id="addQuoteBtn">Add Quote</button>
+  `;
+
+  // Attach event listener to the dynamically created add quote button
+  document.getElementById('addQuoteBtn').addEventListener('click', addQuote);
 }
 
 // Function to add a new quote from form inputs
 function addQuote() {
+  const newQuoteTextInput = document.getElementById('newQuoteText');
+  const newQuoteCategoryInput = document.getElementById('newQuoteCategory');
+
   const newQuoteText = newQuoteTextInput.value.trim();
   const newQuoteCategory = newQuoteCategoryInput.value.trim();
 
@@ -58,9 +62,11 @@ function addQuote() {
   showRandomQuote();
 }
 
-// Event listeners for buttons
+// Event listener for the new quote button to show random quote
 newQuoteBtn.addEventListener('click', showRandomQuote);
-addQuoteBtn.addEventListener('click', addQuote);
+
+// Initialize add quote form on page load
+createAddQuoteForm();
 
 // Initial quote display on page load
 showRandomQuote();
