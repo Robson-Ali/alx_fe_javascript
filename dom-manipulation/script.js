@@ -69,6 +69,78 @@ function showRandomQuote() {
   sessionStorage.setItem(SESSION_STORAGE_KEY, randomIndex.toString());
 }
 
+// Reference for category dropdown (create this dropdown in HTML, see below)
+const categorySelect = document.createElement('select');
+categorySelect.id = 'categoryFilter';
+categorySelect.style.marginLeft = '10px';
+
+// Populate category dropdown dynamically from quotes array
+function populateCategories() {
+  // Extract unique categories
+  const categories = [...new Set(quotes.map(q => q.category))];
+  
+  // Clear existing options but keep the default "All"
+  categorySelect.innerHTML = '';
+  
+  const allOption = document.createElement('option');
+  allOption.value = '';
+  allOption.textContent = 'All Categories';
+  categorySelect.appendChild(allOption);
+
+  categories.forEach(category => {
+    const option = document.createElement('option');
+    option.value = category;
+    option.textContent = category;
+    categorySelect.appendChild(option);
+  });
+
+  // Restore last selected value from localStorage if present
+  const savedCategory = localStorage.getItem('selectedCategory') || '';
+  categorySelect.value = savedCategory;
+}
+
+// Filter quotes based on selected category and display one random quote from filtered list
+function filterQuotes() {
+  const selectedCategory = categorySelect.value;
+  localStorage.setItem('selectedCategory', selectedCategory);
+
+  // Filter quotes array or use full list if no category selected
+  const filteredQuotes = selectedCategory 
+    ? quotes.filter(q => q.category === selectedCategory) 
+    : quotes;
+
+  quoteDisplay.innerHTML = '';
+
+  if (filteredQuotes.length === 0) {
+    const p = document.createElement('p');
+    p.textContent = "No quotes available for this category.";
+    quoteDisplay.appendChild(p);
+    sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    return;
+  }
+
+  // Pick a random quote from filtered
+  const randomIndex = Math.floor(Math.random() * filteredQuotes.length);
+  const quote = filteredQuotes[randomIndex];
+
+  const p = document.createElement('p');
+  p.style.fontStyle = 'italic';
+  p.textContent = `"${quote.text}"`;
+
+  const small = document.createElement('small');
+  small.style.display = 'block';
+  small.style.marginTop = '5px';
+  small.style.color = '#555';
+  small.textContent = `Category: ${quote.category}`;
+
+  quoteDisplay.appendChild(p);
+  quoteDisplay.appendChild(small);
+
+  // Optionally store last viewed filtered quote index (can be improved if you want)
+  sessionStorage.setItem(SESSION_STORAGE_KEY, randomIndex.toString());
+}
+
+
 // --- Create Add Quote Form ---
 function createAddQuoteForm() {
   addQuoteContainer.innerHTML = '';
@@ -110,11 +182,14 @@ function addQuote() {
   quotes.push({ text: newQuoteText, category: newQuoteCategory });
   saveQuotes();
 
+  // Clear inputs
   newQuoteTextInput.value = '';
   newQuoteCategoryInput.value = '';
 
-  showRandomQuote();
+  populateCategories(); // Refresh categories dropdown to include new category
+  filterQuotes();       // Show filtered quotes according to current filter
 }
+
 
 // --- Create Import and Export Controls ---
 function createImportExportControls() {
@@ -191,9 +266,18 @@ function init() {
   loadQuotes();
   createAddQuoteForm();
   createImportExportControls();
-  showRandomQuote();
+
+  // Insert category filter dropdown before the "Show New Quote" button
+  newQuoteBtn.parentNode.insertBefore(categorySelect, newQuoteBtn);
+
+  populateCategories();
+
+  // Show quotes filtered by last selected category (or all)
+  filterQuotes();
 }
 
+//Add event listener to the category filter dropdown:
+categorySelect.addEventListener('change', filterQuotes);
 // Event listener for showing a random quote
 newQuoteBtn.addEventListener('click', showRandomQuote);
 
