@@ -283,3 +283,60 @@ newQuoteBtn.addEventListener('click', showRandomQuote);
 
 // Initialize application on page load
 init();
+
+const SERVER_URL = 'https://jsonplaceholder.typicode.com/posts'; // Example mock API endpoint
+const SYNC_INTERVAL = 30000; // 30 seconds sync interval
+const notificationArea = document.createElement('div');
+notificationArea.id = 'syncNotification';
+notificationArea.style.position = 'fixed';
+notificationArea.style.top = '10px';
+notificationArea.style.right = '10px';
+notificationArea.style.backgroundColor = '#4caf50';
+notificationArea.style.color = 'white';
+notificationArea.style.padding = '10px';
+notificationArea.style.display = 'none';
+document.body.appendChild(notificationArea);
+
+async function fetchServerQuotes() {
+  try {
+    const response = await fetch(SERVER_URL);
+    const serverData = await response.json();
+    // Assuming serverData is an array of quotes {text, category}
+    return serverData.map(item => ({
+      text: item.body || item.text,
+      category: item.title || 'Uncategorized'
+    }));
+  } catch (error) {
+    console.error('Error fetching server quotes:', error);
+    return [];
+  }
+}
+
+async function syncQuotes() {
+  const serverQuotes = await fetchServerQuotes();
+  if (serverQuotes.length === 0) return;
+
+  // Simple conflict resolution: overwrite local quotes with server quotes
+  quotes = serverQuotes;
+  saveQuotes();
+  populateCategories();
+  filterQuotes();
+
+  // Show notification to user
+  notificationArea.textContent = 'Quotes updated from server.';
+  notificationArea.style.display = 'block';
+  setTimeout(() => {
+    notificationArea.style.display = 'none';
+  }, 4000);
+}
+
+// Periodic sync setup
+setInterval(syncQuotes, SYNC_INTERVAL);
+
+// Optional manual sync button
+const manualSyncBtn = document.createElement('button');
+manualSyncBtn.textContent = 'Sync Quotes Now';
+manualSyncBtn.style.margin = '10px';
+manualSyncBtn.addEventListener('click', syncQuotes);
+document.body.insertBefore(manualSyncBtn, quoteDisplay);
+
